@@ -5,6 +5,7 @@
  * Date: 2018/4/1 0001
  * Time: 下午 21:33
  */
+include "JobExample.php";
 
 class BluePrint
 {
@@ -25,18 +26,27 @@ class BluePrint
     protected function setPid()
     {
         $this->pid = posix_getpid();
-        file_put_contents("worker_pid.txt",$this->pid);
+        file_put_contents("worker_pid",$this->pid);
     }
 
-    public function handler($taskListKey)
-    {
-        $taskList = $this->getTaskList($taskListKey);
+    public function run()
+    { 
         while(true){
-            if(empty($taskList)){
-                $this->stop();
-            }
-            $this->consume($taskList);
+        	$taskList = $this->getTaskList();
+        	if(empty($taskList)){
+        		$this->stop();
+        	}
+        	$this->consume($taskList);
         }
+    }
+
+    protected function consume($taskList)
+    {
+    	while(!empty($taskList)){
+		    $job = array_pop($taskList);
+	        $job = unserialize($job);
+	        $job->handle();
+    	}
     }
 
     protected function stop()
@@ -44,16 +54,18 @@ class BluePrint
         posix_kill($this->pid,SIGSTOP);
     }
 
-    protected function consume($taskList)
-    {
-        while(!empty($taskList)) {
-            $job = array_pop($taskList);
-            $job->doSomething();
-        }
-    }
-
-    protected function getTaskList($key)
+    protected function getTaskList()
     {
         //get tasklist from something like redis or database
+        $redis = new Redis();
+        $redis->connect("127.0.0.1",6379);
+        $result = [];
+        if($result = $redis->lrange("task_list",0,-1)){
+        	$redis->delete("task_list");
+        }
+    
+        return $result;
     }
 }
+
+(new BluePrint())->run();

@@ -9,25 +9,35 @@
 class SendTask
 {
     protected $workerPid;
+    protected $job;
+
+    public function __construct($job)
+    {
+        $this->job = $job;
+        $this->getWorkerPid();
+    }
 
     public function getTaskContainer()
     {
         $redis = new Redis();
+        $redis->connect("127.0.0.1",6379);
         return $redis;
     }
 
-    public function pushTask($job)
+    public function pushTask()
     {
         //store job in the redis or other database
-        $this->storeTask($job);
+        $this->storeTask();
+        var_dump($this->workerPid);
         $this->wakeupWorker();
     }
 
-    protected function storeTask($job)
+    protected function storeTask()
     {
         //store job in the redis or other database like this
         $redis = $this->getTaskContainer();
-        $redis->lpush("task_key",serialize($job));
+        $redis->lpush("task_list",serialize($this->job));
+        //job must implements interface hanler
     }
 
     protected function wakeupWorker()
@@ -37,6 +47,6 @@ class SendTask
 
     protected function getWorkerPid()
     {
-        $this->workerPid = file_get_contents("worker_pid.txt");
+        $this->workerPid = (int)file_get_contents("worker_pid");
     }
 }
